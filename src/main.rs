@@ -25,9 +25,6 @@ enum DemoNode {
     /// Value node with a single output.
     String(String),
 
-    /// Converts URI to Image
-    ShowImage(String),
-
     /// Expression node with a single output.
     /// It has number of inputs equal to number of variables in the expression.
     ExprNode(ExprNode),
@@ -39,7 +36,6 @@ impl DemoNode {
             DemoNode::Sink => "Sink",
             DemoNode::Number(_) => "Number",
             DemoNode::String(_) => "String",
-            DemoNode::ShowImage(_) => "ShowImage",
             DemoNode::ExprNode(_) => "ExprNode",
         }
     }
@@ -61,7 +57,6 @@ impl DemoNode {
 
     fn label_in(&mut self, idx: usize) -> &str {
         match self {
-            DemoNode::ShowImage(_) if idx == 0 => "URL",
             DemoNode::ExprNode(expr_node) => &expr_node.bindings[idx - 1],
             _ => unreachable!(),
         }
@@ -76,7 +71,6 @@ impl DemoNode {
 
     fn string_in(&mut self) -> &mut String {
         match self {
-            DemoNode::ShowImage(uri) => uri,
             DemoNode::ExprNode(expr_node) => &mut expr_node.text,
             _ => unreachable!(),
         }
@@ -107,13 +101,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             (_, DemoNode::String(_)) => {
                 unreachable!("String node has no inputs")
             }
-            (DemoNode::Number(_), DemoNode::ShowImage(_)) => {
-                return;
-            }
-            (DemoNode::ShowImage(_), DemoNode::ShowImage(_)) => {
-                return;
-            }
-            (DemoNode::String(_), DemoNode::ShowImage(_)) => {}
             (DemoNode::ExprNode(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {
                 return;
             }
@@ -124,12 +111,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             (DemoNode::Number(_), DemoNode::ExprNode(_)) => {}
             (DemoNode::String(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {}
             (DemoNode::String(_), DemoNode::ExprNode(_)) => {
-                return;
-            }
-            (DemoNode::ShowImage(_), DemoNode::ExprNode(_)) => {
-                return;
-            }
-            (DemoNode::ExprNode(_), DemoNode::ShowImage(_)) => {
                 return;
             }
         }
@@ -146,7 +127,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::Sink => "Sink".to_owned(),
             DemoNode::Number(_) => "Number".to_owned(),
             DemoNode::String(_) => "String".to_owned(),
-            DemoNode::ShowImage(_) => "Show image".to_owned(),
             DemoNode::ExprNode(_) => "Expr".to_owned(),
         }
     }
@@ -156,7 +136,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::Sink => 1,
             DemoNode::Number(_) => 0,
             DemoNode::String(_) => 0,
-            DemoNode::ShowImage(_) => 1,
             DemoNode::ExprNode(expr_node) => 1 + expr_node.bindings.len(),
         }
     }
@@ -166,7 +145,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::Sink => 0,
             DemoNode::Number(_) => 1,
             DemoNode::String(_) => 1,
-            DemoNode::ShowImage(_) => 1,
             DemoNode::ExprNode(_) => 1,
         }
     }
@@ -209,16 +187,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                             ui.label(format_float(expr.eval()));
                             PinInfo::square().with_fill(NUMBER_COLOR)
                         }
-                        DemoNode::ShowImage(ref uri) => {
-                            assert_eq!(remote.output, 0, "ShowImage node has only one output");
-
-                            let image = egui::Image::new(uri)
-                                .fit_to_original_size(scale)
-                                .show_loading_spinner(true);
-                            ui.add(image);
-
-                            PinInfo::circle().with_fill(IMAGE_COLOR)
-                        }
                     },
                     _ => unreachable!("Sink input has only one wire"),
                 }
@@ -229,40 +197,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::String(_) => {
                 unreachable!("String node has no inputs")
             }
-            DemoNode::ShowImage(_) => match &*pin.remotes {
-                [] => {
-                    let input = snarl[pin.id.node].string_in();
-                    egui::TextEdit::singleline(input)
-                        .clip_text(false)
-                        .desired_width(0.0)
-                        .margin(ui.spacing().item_spacing)
-                        .show(ui);
-                    PinInfo::triangle().with_fill(STRING_COLOR).with_wire_style(
-                        WireStyle::AxisAligned {
-                            corner_radius: 10.0,
-                        },
-                    )
-                }
-                [remote] => {
-                    let new_value = snarl[remote.node].string_out().to_owned();
-
-                    egui::TextEdit::singleline(&mut &*new_value)
-                        .clip_text(false)
-                        .desired_width(0.0)
-                        .margin(ui.spacing().item_spacing)
-                        .show(ui);
-
-                    let input = snarl[pin.id.node].string_in();
-                    *input = new_value;
-
-                    PinInfo::triangle().with_fill(STRING_COLOR).with_wire_style(
-                        WireStyle::AxisAligned {
-                            corner_radius: 10.0,
-                        },
-                    )
-                }
-                _ => unreachable!("Sink input has only one wire"),
-            },
             DemoNode::ExprNode(_) if pin.id.input == 0 => {
                 let changed = match &*pin.remotes {
                     [] => {
@@ -421,10 +355,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 ui.label(format_float(value));
                 PinInfo::square().with_fill(NUMBER_COLOR)
             }
-            DemoNode::ShowImage(_) => {
-                ui.allocate_at_least(egui::Vec2::ZERO, egui::Sense::hover());
-                PinInfo::circle().with_fill(IMAGE_COLOR)
-            }
         }
     }
 
@@ -450,10 +380,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         }
         if ui.button("String").clicked() {
             snarl.insert_node(pos, DemoNode::String("".to_owned()));
-            ui.close_menu();
-        }
-        if ui.button("Show image").clicked() {
-            snarl.insert_node(pos, DemoNode::ShowImage("".to_owned()));
             ui.close_menu();
         }
         if ui.button("Sink").clicked() {
@@ -493,7 +419,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 DemoNode::Sink => 0,
                 DemoNode::Number(_) => PIN_NUM,
                 DemoNode::String(_) => PIN_STR,
-                DemoNode::ShowImage(_) => PIN_IMG,
                 DemoNode::ExprNode(_) => PIN_NUM,
             }
         }
@@ -503,7 +428,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 DemoNode::Sink => PIN_SINK,
                 DemoNode::Number(_) => 0,
                 DemoNode::String(_) => 0,
-                DemoNode::ShowImage(_) => PIN_STR,
                 DemoNode::ExprNode(_) => {
                     if pin == 0 {
                         PIN_STR
@@ -525,7 +449,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 let src_out_ty = pin_out_compat(snarl.get_node(src_pin.node).unwrap());
                 let dst_in_candidates = [
                     ("Sink", (|| DemoNode::Sink) as fn() -> DemoNode, PIN_SINK),
-                    ("Show Image", || DemoNode::ShowImage("".to_owned()), PIN_STR),
                     ("Expr", || DemoNode::ExprNode(ExprNode::new()), PIN_STR),
                 ];
 
@@ -557,7 +480,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                     ),
                     ("String", || DemoNode::String("".to_owned()), PIN_STR),
                     ("Expr", || DemoNode::ExprNode(ExprNode::new()), PIN_NUM),
-                    ("Show Image", || DemoNode::ShowImage("".to_owned()), PIN_IMG),
                 ];
 
                 for (name, ctor, out_ty) in dst_out_candidates {
@@ -632,9 +554,6 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             }
             DemoNode::String(_) => {
                 ui.label("Outputs string value");
-            }
-            DemoNode::ShowImage(_) => {
-                ui.label("Displays image from URL in input");
             }
             DemoNode::ExprNode(_) => {
                 ui.label("Evaluates algebraic expression with input for each unique variable name");
