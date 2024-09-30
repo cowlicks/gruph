@@ -9,7 +9,6 @@ use egui_snarl::{
 
 const STRING_COLOR: Color32 = Color32::from_rgb(0x00, 0xb0, 0x00);
 const NUMBER_COLOR: Color32 = Color32::from_rgb(0xb0, 0x00, 0x00);
-const IMAGE_COLOR: Color32 = Color32::from_rgb(0xb0, 0x00, 0xb0);
 const UNTYPED_COLOR: Color32 = Color32::from_rgb(0xb0, 0xb0, 0xb0);
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -153,7 +152,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         &mut self,
         pin: &InPin,
         ui: &mut Ui,
-        scale: f32,
+        _scale: f32,
         snarl: &mut Snarl<DemoNode>,
     ) -> PinInfo {
         match snarl[pin.id.node] {
@@ -707,14 +706,14 @@ impl syn::parse::Parse for Expr {
                 return Ok(expr);
             }
             lhs = expr;
-        // } else if lookahead.peek(syn::LitFloat) {
-        //     let lit = input.parse::<syn::LitFloat>()?;
-        //     let value = lit.base10_parse::<f64>()?;
-        //     let expr = Expr::Val(value);
-        //     if input.is_empty() {
-        //         return Ok(expr);
-        //     }
-        //     lhs = expr;
+            // } else if lookahead.peek(syn::LitFloat) {
+            //     let lit = input.parse::<syn::LitFloat>()?;
+            //     let value = lit.base10_parse::<f64>()?;
+            //     let expr = Expr::Val(value);
+            //     if input.is_empty() {
+            //         return Ok(expr);
+            //     }
+            //     lhs = expr;
         } else if lookahead.peek(syn::LitInt) {
             let lit = input.parse::<syn::LitInt>()?;
             let value = lit.base10_parse::<f64>()?;
@@ -883,7 +882,11 @@ impl DemoApp {
         };
         // let style = SnarlStyle::new();
 
-        DemoApp { snarl, style, snarl_ui_id: None }
+        DemoApp {
+            snarl,
+            style,
+            snarl_ui_id: None,
+        }
     }
 }
 
@@ -922,7 +925,8 @@ impl App for DemoApp {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.strong("Selected nodes");
 
-                    let selected = Snarl::<DemoNode>::get_selected_nodes_at("snarl", snarl_ui_id, ui.ctx());
+                    let selected =
+                        Snarl::<DemoNode>::get_selected_nodes_at("snarl", snarl_ui_id, ui.ctx());
                     let mut selected = selected
                         .into_iter()
                         .map(|id| (id, &self.snarl[id]))
@@ -953,8 +957,7 @@ impl App for DemoApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.snarl_ui_id = Some(ui.id());
 
-            self.snarl
-                .show(&mut DemoViewer, &self.style, "snarl", ui);
+            self.snarl.show(&mut DemoViewer, &self.style, "snarl", ui);
         });
     }
 
