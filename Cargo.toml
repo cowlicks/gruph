@@ -6,11 +6,14 @@ edition = "2021"
 [dependencies]
 egui = { version = "0.28" }
 egui-probe = "0.5.1"
-#egui-snarl = { version = "0.4.4", features = ["egui-probe", "serde"] }
-egui-snarl = { path = "../egui-snarl" }
 eframe = { version = "0.28", features = ["serde", "persistence"] }
 egui_extras = { version = "0.28", features = ["all_loaders"] }
 syn = { version = "2.0", features = ["extra-traits"] }
 serde_json = { version = "1.0" }
 serde = "1.0.210"
 tracing = "0.1.40"
+
+[dependencies.egui-snarl]
+#version = "0.4.0"
+path = "../egui-snarl"
+features = ["egui-probe", "serde"]
