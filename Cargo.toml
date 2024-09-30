@@ -12,6 +12,7 @@ syn = { version = "2.0", features = ["extra-traits"] }
 serde_json = { version = "1.0" }
 serde = "1.0.210"
 tracing = "0.1.40"
+layout-rs = "0.1.2"
 
 [dependencies.egui-snarl]
 #version = "0.4.0"

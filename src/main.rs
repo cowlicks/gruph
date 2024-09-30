@@ -944,3 +944,65 @@ fn format_float(v: f64) -> String {
     let v = (v * 1000.0).round() / 1000.0;
     format!("{}", v)
 }
+
+#[test]
+fn foo() {
+    use layout::{
+        backends::svg::SVGWriter,
+        core::format::Visible,
+        gv::{DotParser, GraphBuilder},
+        topo::{layout::VisualGraph, placer::place::Placer},
+    };
+    fn lower_vg(vg: &mut VisualGraph) {
+        vg.to_valid_dag();
+        vg.split_text_edges();
+        vg.split_long_edges(false);
+
+        for elem in vg.dag.iter() {
+            vg.element_mut(elem).resize();
+        }
+    }
+
+    let contents = r#"
+digraph G {
+  // Nodes
+  A [label="Node A"];
+  B [label="Node B"];
+  C [label="Node C"];
+  D [label="Node D"];
+  E [label="Node E"];
+
+  // Edges (connections)
+  A -> B;
+  A -> C;
+  B -> D;
+  C -> D;
+  D -> E;
+  B -> E;
+}
+
+"#;
+    let mut parser = DotParser::new(&contents);
+
+    match parser.process() {
+        Ok(g) => {
+            let mut gb = GraphBuilder::new();
+            gb.visit_graph(&g);
+            let mut vg = gb.get();
+            //let mut svg_writer = SVGWriter::new();
+            lower_vg(&mut vg);
+            Placer::new(&mut vg).layout(false);
+            //vg.do_it(false, false, false, &mut svg_writer);
+            for nh in vg.iter_nodes() {
+                dbg!(nh);
+                // if not an edge
+                if !vg.is_connector(nh) {
+                    dbg!(vg.pos(nh));
+                }
+            }
+        }
+        Err(err) => {
+            parser.print_error();
+        }
+    }
+}
