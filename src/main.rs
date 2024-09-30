@@ -14,7 +14,7 @@ const NUMBER_COLOR: Color32 = Color32::from_rgb(0xb0, 0x00, 0x00);
 enum DemoNode {
     /// Value node with a single output.
     /// The value is editable in UI.
-    Number(f64),
+    Number(usize),
 
     /// Value node with a single output.
     Named(String),
@@ -35,7 +35,7 @@ impl DemoNode {
 
     fn number_out(&self) -> f64 {
         match self {
-            DemoNode::Number(value) => *value,
+            DemoNode::Number(value) => *value as f64,
             DemoNode::ExprNode(expr_node) => expr_node.eval(),
             _ => unreachable!(),
         }
@@ -121,7 +121,8 @@ impl SnarlViewer<DemoNode> for DemoViewer {
 
     fn inputs(&mut self, node: &DemoNode) -> usize {
         match node {
-            DemoNode::Number(_) => 0,
+            //DemoNode::Number(x) => *x,
+            DemoNode::Number(x) => *x,
             DemoNode::Named(_) => 0,
             DemoNode::ExprNode(expr_node) => 1 + expr_node.bindings.len(),
         }
@@ -143,9 +144,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         snarl: &mut Snarl<DemoNode>,
     ) -> PinInfo {
         match snarl[pin.id.node] {
-            DemoNode::Number(_) => {
-                unreachable!("Number node has no inputs")
-            }
+            DemoNode::Number(_) => PinInfo::square().with_fill(NUMBER_COLOR),
             DemoNode::Named(_) => {
                 unreachable!("String node has no inputs")
             }
@@ -320,7 +319,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
     ) {
         ui.label("Add node");
         if ui.button("Number").clicked() {
-            snarl.insert_node(pos, DemoNode::Number(0.0));
+            snarl.insert_node(pos, DemoNode::Number(0));
             ui.close_menu();
         }
         if ui.button("Expr").clicked() {
@@ -413,7 +412,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 let dst_out_candidates = [
                     (
                         "Number",
-                        (|| DemoNode::Number(0.)) as fn() -> DemoNode,
+                        (|| DemoNode::Number(0)) as fn() -> DemoNode,
                         PIN_NUM,
                     ),
                     ("String", || DemoNode::Named("".to_owned()), PIN_STR),
@@ -792,6 +791,7 @@ pub struct DemoApp {
     snarl: Snarl<DemoNode>,
     style: SnarlStyle,
     snarl_ui_id: Option<Id>,
+    state: egui::Pos2,
 }
 
 impl DemoApp {
@@ -822,6 +822,7 @@ impl DemoApp {
             snarl,
             style,
             snarl_ui_id: None,
+            state: egui::Pos2::new(0., 0.),
         }
     }
 }
@@ -851,6 +852,12 @@ impl App for DemoApp {
         });
 
         egui::SidePanel::left("style").show(ctx, |ui| {
+            if ui.add(egui::Button::new("Click me")).clicked() {
+                dbg!(self.state);
+                self.snarl.insert_node(self.state, DemoNode::Number(0));
+                self.state[0] += 11.;
+                self.state[1] += 11.;
+            }
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui_probe::Probe::new(&mut self.style).show(ui);
             });
