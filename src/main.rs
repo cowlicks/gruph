@@ -22,7 +22,7 @@ enum DemoNode {
     Number(f64),
 
     /// Value node with a single output.
-    String(String),
+    Named(String),
 
     /// Expression node with a single output.
     /// It has number of inputs equal to number of variables in the expression.
@@ -34,7 +34,7 @@ impl DemoNode {
         match self {
             DemoNode::Sink => "Sink",
             DemoNode::Number(_) => "Number",
-            DemoNode::String(_) => "String",
+            DemoNode::Named(_) => "String",
             DemoNode::ExprNode(_) => "ExprNode",
         }
     }
@@ -63,7 +63,7 @@ impl DemoNode {
 
     fn string_out(&self) -> &str {
         match self {
-            DemoNode::String(value) => value,
+            DemoNode::Named(value) => value,
             _ => unreachable!(),
         }
     }
@@ -97,7 +97,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             (_, DemoNode::Number(_)) => {
                 unreachable!("Number node has no inputs")
             }
-            (_, DemoNode::String(_)) => {
+            (_, DemoNode::Named(_)) => {
                 unreachable!("String node has no inputs")
             }
             (DemoNode::ExprNode(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {
@@ -108,8 +108,8 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 return;
             }
             (DemoNode::Number(_), DemoNode::ExprNode(_)) => {}
-            (DemoNode::String(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {}
-            (DemoNode::String(_), DemoNode::ExprNode(_)) => {
+            (DemoNode::Named(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {}
+            (DemoNode::Named(_), DemoNode::ExprNode(_)) => {
                 return;
             }
         }
@@ -125,7 +125,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         match node {
             DemoNode::Sink => "Sink".to_owned(),
             DemoNode::Number(_) => "Number".to_owned(),
-            DemoNode::String(_) => "String".to_owned(),
+            DemoNode::Named(_) => "String".to_owned(),
             DemoNode::ExprNode(_) => "Expr".to_owned(),
         }
     }
@@ -134,7 +134,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         match node {
             DemoNode::Sink => 1,
             DemoNode::Number(_) => 0,
-            DemoNode::String(_) => 0,
+            DemoNode::Named(_) => 0,
             DemoNode::ExprNode(expr_node) => 1 + expr_node.bindings.len(),
         }
     }
@@ -143,7 +143,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         match node {
             DemoNode::Sink => 0,
             DemoNode::Number(_) => 1,
-            DemoNode::String(_) => 1,
+            DemoNode::Named(_) => 1,
             DemoNode::ExprNode(_) => 1,
         }
     }
@@ -171,7 +171,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                             ui.label(format_float(value));
                             PinInfo::square().with_fill(NUMBER_COLOR)
                         }
-                        DemoNode::String(ref value) => {
+                        DemoNode::Named(ref value) => {
                             assert_eq!(remote.output, 0, "String node has only one output");
                             ui.label(format!("{:?}", value));
 
@@ -193,7 +193,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::Number(_) => {
                 unreachable!("Number node has no inputs")
             }
-            DemoNode::String(_) => {
+            DemoNode::Named(_) => {
                 unreachable!("String node has no inputs")
             }
             DemoNode::ExprNode(_) if pin.id.input == 0 => {
@@ -335,7 +335,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 ui.add(egui::DragValue::new(value));
                 PinInfo::square().with_fill(NUMBER_COLOR)
             }
-            DemoNode::String(ref mut value) => {
+            DemoNode::Named(ref mut value) => {
                 assert_eq!(pin.id.output, 0, "String node has only one output");
                 let edit = egui::TextEdit::singleline(value)
                     .clip_text(false)
@@ -378,7 +378,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             ui.close_menu();
         }
         if ui.button("String").clicked() {
-            snarl.insert_node(pos, DemoNode::String("".to_owned()));
+            snarl.insert_node(pos, DemoNode::Named("".to_owned()));
             ui.close_menu();
         }
         if ui.button("Sink").clicked() {
@@ -417,7 +417,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             match node {
                 DemoNode::Sink => 0,
                 DemoNode::Number(_) => PIN_NUM,
-                DemoNode::String(_) => PIN_STR,
+                DemoNode::Named(_) => PIN_STR,
                 DemoNode::ExprNode(_) => PIN_NUM,
             }
         }
@@ -426,7 +426,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             match node {
                 DemoNode::Sink => PIN_SINK,
                 DemoNode::Number(_) => 0,
-                DemoNode::String(_) => 0,
+                DemoNode::Named(_) => 0,
                 DemoNode::ExprNode(_) => {
                     if pin == 0 {
                         PIN_STR
@@ -477,7 +477,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                         (|| DemoNode::Number(0.)) as fn() -> DemoNode,
                         PIN_NUM,
                     ),
-                    ("String", || DemoNode::String("".to_owned()), PIN_STR),
+                    ("String", || DemoNode::Named("".to_owned()), PIN_STR),
                     ("Expr", || DemoNode::ExprNode(ExprNode::new()), PIN_NUM),
                 ];
 
@@ -551,7 +551,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
             DemoNode::Number(_) => {
                 ui.label("Outputs integer value");
             }
-            DemoNode::String(_) => {
+            DemoNode::Named(_) => {
                 ui.label("Outputs string value");
             }
             DemoNode::ExprNode(_) => {
