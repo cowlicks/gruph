@@ -12,9 +12,13 @@ syn = { version = "2.0", features = ["extra-traits"] }
 serde_json = { version = "1.0" }
 serde = "1.0.210"
 tracing = "0.1.40"
-layout-rs = "0.1.2"
+thiserror = "1.0.64"
 
 [dependencies.egui-snarl]
 #version = "0.4.0"
 path = "../egui-snarl"
 features = ["egui-probe", "serde"]
+
+[dependencies.layout-rs]
+#version = "0.1.2"
+path = "../dot_layout_rs/layout"
