@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 use eframe::{App, CreationContext};
 use egui::{Color32, Id, Ui};
@@ -6,9 +9,24 @@ use egui_snarl::{
     ui::{AnyPins, PinInfo, SnarlStyle, SnarlViewer, WireStyle},
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
 };
+use layout::{
+    backends::svg::SVGWriter,
+    core::format::Visible,
+    gv::{DotParser, GraphBuilder},
+    std_shapes::shapes::{Element, ShapeKind},
+    topo::{layout::VisualGraph, placer::place::Placer},
+};
 
 const STRING_COLOR: Color32 = Color32::from_rgb(0x00, 0xb0, 0x00);
 const NUMBER_COLOR: Color32 = Color32::from_rgb(0xb0, 0x00, 0x00);
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Error parsing DOT graph: [{0}]")]
+    DotParserError(String),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 enum DemoNode {
