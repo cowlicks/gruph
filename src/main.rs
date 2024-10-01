@@ -1,22 +1,23 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
 use eframe::{App, CreationContext};
-use egui::{Color32, Id, Ui};
+use egui::{Id, Ui};
 use egui_snarl::{
-    ui::{AnyPins, PinInfo, SnarlStyle, SnarlViewer, WireStyle},
+    ui::{AnyPins, PinInfo, SnarlStyle, SnarlViewer},
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
 };
 use layout::{
     core::format::Visible,
-    gv::{DotParser, GraphBuilder},
+    gv::{
+        parser::ast::{EdgeStmt, Graph, NodeStmt, Stmt},
+        DotParser, GraphBuilder,
+    },
     std_shapes::shapes::{Element, ShapeKind},
     topo::{layout::VisualGraph, placer::place::Placer},
 };
-
-const STRING_COLOR: Color32 = Color32::from_rgb(0x00, 0xb0, 0x00);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -35,7 +36,7 @@ enum Node {
 impl Node {
     fn name(&self) -> &str {
         match self {
-            Node::Named(_) => "String",
+            Node::Named(x) => x,
         }
     }
 }
@@ -54,58 +55,40 @@ impl SnarlViewer<Node> for DemoViewer {
 
     fn title(&mut self, node: &Node) -> String {
         match node {
-            Node::Named(_) => "String".to_owned(),
+            Node::Named(x) => x.to_string(),
         }
     }
 
     fn inputs(&mut self, node: &Node) -> usize {
         match node {
-            Node::Named(_) => 0,
+            Node::Named(_) => 2,
         }
     }
 
     fn outputs(&mut self, node: &Node) -> usize {
         match node {
-            Node::Named(_) => 1,
+            Node::Named(_) => 2,
         }
     }
 
     fn show_input(
         &mut self,
-        pin: &InPin,
-        ui: &mut Ui,
+        _pin: &InPin,
+        _ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<Node>,
+        _snarl: &mut Snarl<Node>,
     ) -> PinInfo {
-        match snarl[pin.id.node] {
-            Node::Named(_) => {
-                unreachable!("String node has no inputs")
-            }
-        }
+        PinInfo::default()
     }
 
     fn show_output(
         &mut self,
-        pin: &OutPin,
-        ui: &mut Ui,
+        _pin: &OutPin,
+        _ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<Node>,
+        _snarl: &mut Snarl<Node>,
     ) -> PinInfo {
-        match snarl[pin.id.node] {
-            Node::Named(ref mut value) => {
-                assert_eq!(pin.id.output, 0, "String node has only one output");
-                let edit = egui::TextEdit::singleline(value)
-                    .clip_text(false)
-                    .desired_width(0.0)
-                    .margin(ui.spacing().item_spacing);
-                ui.add(edit);
-                PinInfo::triangle().with_fill(STRING_COLOR).with_wire_style(
-                    WireStyle::AxisAligned {
-                        corner_radius: 10.0,
-                    },
-                )
-            }
-        }
+        PinInfo::default()
     }
 
     fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<Node>) -> bool {
@@ -272,6 +255,8 @@ impl App for DemoApp {
                 self.snarl = Default::default();
                 let _ = parse_dot(&mut self.snarl, &self.state.graph_str);
                 LOOP_NUM.fetch_add(1, Ordering::SeqCst);
+            } else {
+                LOOP_NUM.fetch_add(1, Ordering::SeqCst);
             }
             ui.add(egui::text_edit::TextEdit::multiline(
                 &mut self.state.graph_str,
@@ -388,22 +373,55 @@ fn node_name(e: &Element) -> Result<String> {
     .to_string())
 }
 
+fn node_id_from_label(
+    g: &Graph,
+    id_or_label: &str,
+    node_map: &BTreeMap<String, NodeId>,
+) -> Option<NodeId> {
+    if let Some(s) = node_map.get(id_or_label) {
+        return Some(s.clone());
+    }
+
+    for s in g.list.list.iter() {
+        let Stmt::Node(NodeStmt { id, list }) = s else {
+            continue;
+        };
+        for att in list.list.iter() {
+            if id_or_label == id.name {
+                if let Some(node) = node_map.get(&id.name) {
+                    return Some(node.clone());
+                }
+            }
+            if att.0 == "label" {
+                if att.1 == id_or_label || id.name == id_or_label {
+                    if let Some(node) = node_map.get(&id.name) {
+                        return Some(node.clone());
+                    }
+                    if let Some(node) = node_map.get(&att.1) {
+                        return Some(node.clone());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Parse flow
 /// g: Graph = DotParser.new(&input).process();
-///
 fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
+    let mut node_map = BTreeMap::new();
     let mut parser = DotParser::new(&input);
 
     let graph = parser.process().map_err(Error::DotParserError)?;
     let mut graph_builder = GraphBuilder::new();
     graph_builder.visit_graph(&graph);
-    // has id's as graph.nodes.keys()
+    // The following creates the "visual" graph and gives positions to the nodes
     let mut visual_graph = graph_builder.get();
-
     lower_vg(&mut visual_graph);
-    dbg!(&visual_graph);
     Placer::new(&mut visual_graph).layout(false);
-    //visual_graph.do_it(false, false, false, &mut svg_writer);
+
+    // get all the positions and insert them as nodes
     for nh in visual_graph.iter_nodes() {
         // if not an edge
         if !visual_graph.is_connector(nh) {
@@ -412,9 +430,38 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
                 x: mid.x as f32,
                 y: mid.y as f32,
             };
+            // this is the "label" i need the node "id"
             let name = node_name(visual_graph.element(nh))?;
-            let node = Node::Named(name);
-            snarl.insert_node(pos, node);
+            let node = Node::Named(name.clone());
+            let snarl_node_id = snarl.insert_node(pos, node);
+            // save the snarl node_id by it's 'name' wich is dot's NodeId.name or label attr
+            node_map.insert(name, snarl_node_id);
+        }
+    }
+    // get the edges (currently from DOT)
+    for g in graph.list.list.iter() {
+        let Stmt::Edge(EdgeStmt { from, to, .. }) = g else {
+            continue;
+        };
+
+        // given a dot id, cehck if it's in the node_map
+        let from_node_id = node_id_from_label(&graph, &from.name, &node_map).unwrap();
+        // start of edge
+        let start = OutPinId {
+            node: from_node_id.clone(),
+            output: 0,
+        };
+
+        // start can connect to multiple ends
+        for (dot_id, ..) in to.iter() {
+            let Some(snarl_to_node_id) = node_id_from_label(&graph, &dot_id.name, &node_map) else {
+                panic!();
+            };
+            let stop = InPinId {
+                node: snarl_to_node_id.clone(),
+                input: 0,
+            };
+            snarl.connect(start, stop);
         }
     }
     Ok(())
