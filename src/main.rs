@@ -10,7 +10,6 @@ use egui_snarl::{
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
 };
 use layout::{
-    backends::svg::SVGWriter,
     core::format::Visible,
     gv::{DotParser, GraphBuilder},
     std_shapes::shapes::{Element, ShapeKind},
@@ -773,7 +772,6 @@ impl Expr {
 }
 
 struct State {
-    pos: egui::Pos2,
     graph_str: String,
 }
 
@@ -801,7 +799,6 @@ static LOOP_NUM: AtomicUsize = AtomicUsize::new(0);
 impl Default for State {
     fn default() -> Self {
         Self {
-            pos: Default::default(),
             graph_str: GRAPH.to_string(),
         }
     }
@@ -872,6 +869,7 @@ impl App for DemoApp {
 
         egui::SidePanel::left("style").show(ctx, |ui| {
             if LOOP_NUM.load(Ordering::SeqCst) == 0 {
+                self.snarl = Default::default();
                 let _ = parse_dot(&mut self.snarl, &self.state.graph_str);
                 LOOP_NUM.fetch_add(1, Ordering::SeqCst);
             }
@@ -1025,56 +1023,4 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
         }
     }
     Ok(())
-}
-
-#[test]
-fn foo() {
-    use layout::{
-        backends::svg::SVGWriter,
-        core::format::Visible,
-        gv::{DotParser, GraphBuilder},
-        topo::{layout::VisualGraph, placer::place::Placer},
-    };
-
-    let contents = r#"
-digraph G {
-  // Nodes
-  A ;
-  B [label="Node Beee"];
-  C [label="Node C"];
-  D [label="Node D"];
-  E [label="Node E"];
-
-  // Edges (connections)
-  A -> B;
-  A -> C;
-  B -> D;
-  C -> D;
-  D -> E;
-  B -> E;
-}
-"#;
-    let mut parser = DotParser::new(&contents);
-
-    match parser.process() {
-        Ok(g) => {
-            let mut gb = GraphBuilder::new();
-            gb.visit_graph(&g);
-            let mut vg = gb.get();
-            //let mut svg_writer = SVGWriter::new();
-            lower_vg(&mut vg);
-            Placer::new(&mut vg).layout(false);
-            //vg.do_it(false, false, false, &mut svg_writer);
-            for nh in vg.iter_nodes() {
-                dbg!(nh);
-                // if not an edge
-                if !vg.is_connector(nh) {
-                    dbg!(vg.pos(nh));
-                }
-            }
-        }
-        Err(err) => {
-            parser.print_error();
-        }
-    }
 }
