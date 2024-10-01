@@ -29,7 +29,7 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-enum DemoNode {
+enum Node {
     /// Value node with a single output.
     /// The value is editable in UI.
     Number(usize),
@@ -42,54 +42,54 @@ enum DemoNode {
     ExprNode(ExprNode),
 }
 
-impl DemoNode {
+impl Node {
     fn name(&self) -> &str {
         match self {
-            DemoNode::Number(_) => "Number",
-            DemoNode::Named(_) => "String",
-            DemoNode::ExprNode(_) => "ExprNode",
+            Node::Number(_) => "Number",
+            Node::Named(_) => "String",
+            Node::ExprNode(_) => "ExprNode",
         }
     }
 
     fn number_out(&self) -> f64 {
         match self {
-            DemoNode::Number(value) => *value as f64,
-            DemoNode::ExprNode(expr_node) => expr_node.eval(),
+            Node::Number(value) => *value as f64,
+            Node::ExprNode(expr_node) => expr_node.eval(),
             _ => unreachable!(),
         }
     }
 
     fn number_in(&mut self, idx: usize) -> &mut f64 {
         match self {
-            DemoNode::ExprNode(expr_node) => &mut expr_node.values[idx - 1],
+            Node::ExprNode(expr_node) => &mut expr_node.values[idx - 1],
             _ => unreachable!(),
         }
     }
 
     fn label_in(&mut self, idx: usize) -> &str {
         match self {
-            DemoNode::ExprNode(expr_node) => &expr_node.bindings[idx - 1],
+            Node::ExprNode(expr_node) => &expr_node.bindings[idx - 1],
             _ => unreachable!(),
         }
     }
 
     fn string_out(&self) -> &str {
         match self {
-            DemoNode::Named(value) => value,
+            Node::Named(value) => value,
             _ => unreachable!(),
         }
     }
 
     fn string_in(&mut self) -> &mut String {
         match self {
-            DemoNode::ExprNode(expr_node) => &mut expr_node.text,
+            Node::ExprNode(expr_node) => &mut expr_node.text,
             _ => unreachable!(),
         }
     }
 
     fn expr_node(&mut self) -> &mut ExprNode {
         match self {
-            DemoNode::ExprNode(expr_node) => expr_node,
+            Node::ExprNode(expr_node) => expr_node,
             _ => unreachable!(),
         }
     }
@@ -97,27 +97,27 @@ impl DemoNode {
 
 struct DemoViewer;
 
-impl SnarlViewer<DemoNode> for DemoViewer {
+impl SnarlViewer<Node> for DemoViewer {
     #[inline]
-    fn connect(&mut self, from: &OutPin, to: &InPin, snarl: &mut Snarl<DemoNode>) {
+    fn connect(&mut self, from: &OutPin, to: &InPin, snarl: &mut Snarl<Node>) {
         // Validate connection
         match (&snarl[from.id.node], &snarl[to.id.node]) {
-            (_, DemoNode::Number(_)) => {
+            (_, Node::Number(_)) => {
                 unreachable!("Number node has no inputs")
             }
-            (_, DemoNode::Named(_)) => {
+            (_, Node::Named(_)) => {
                 unreachable!("String node has no inputs")
             }
-            (DemoNode::ExprNode(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {
+            (Node::ExprNode(_), Node::ExprNode(_)) if to.id.input == 0 => {
                 return;
             }
-            (DemoNode::ExprNode(_), DemoNode::ExprNode(_)) => {}
-            (DemoNode::Number(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {
+            (Node::ExprNode(_), Node::ExprNode(_)) => {}
+            (Node::Number(_), Node::ExprNode(_)) if to.id.input == 0 => {
                 return;
             }
-            (DemoNode::Number(_), DemoNode::ExprNode(_)) => {}
-            (DemoNode::Named(_), DemoNode::ExprNode(_)) if to.id.input == 0 => {}
-            (DemoNode::Named(_), DemoNode::ExprNode(_)) => {
+            (Node::Number(_), Node::ExprNode(_)) => {}
+            (Node::Named(_), Node::ExprNode(_)) if to.id.input == 0 => {}
+            (Node::Named(_), Node::ExprNode(_)) => {
                 return;
             }
         }
@@ -129,28 +129,28 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         snarl.connect(from.id, to.id);
     }
 
-    fn title(&mut self, node: &DemoNode) -> String {
+    fn title(&mut self, node: &Node) -> String {
         match node {
-            DemoNode::Number(_) => "Number".to_owned(),
-            DemoNode::Named(_) => "String".to_owned(),
-            DemoNode::ExprNode(_) => "Expr".to_owned(),
+            Node::Number(_) => "Number".to_owned(),
+            Node::Named(_) => "String".to_owned(),
+            Node::ExprNode(_) => "Expr".to_owned(),
         }
     }
 
-    fn inputs(&mut self, node: &DemoNode) -> usize {
+    fn inputs(&mut self, node: &Node) -> usize {
         match node {
             //DemoNode::Number(x) => *x,
-            DemoNode::Number(x) => *x,
-            DemoNode::Named(_) => 0,
-            DemoNode::ExprNode(expr_node) => 1 + expr_node.bindings.len(),
+            Node::Number(x) => *x,
+            Node::Named(_) => 0,
+            Node::ExprNode(expr_node) => 1 + expr_node.bindings.len(),
         }
     }
 
-    fn outputs(&mut self, node: &DemoNode) -> usize {
+    fn outputs(&mut self, node: &Node) -> usize {
         match node {
-            DemoNode::Number(_) => 1,
-            DemoNode::Named(_) => 1,
-            DemoNode::ExprNode(_) => 1,
+            Node::Number(_) => 1,
+            Node::Named(_) => 1,
+            Node::ExprNode(_) => 1,
         }
     }
 
@@ -159,14 +159,14 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         pin: &InPin,
         ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) -> PinInfo {
         match snarl[pin.id.node] {
-            DemoNode::Number(_) => PinInfo::square().with_fill(NUMBER_COLOR),
-            DemoNode::Named(_) => {
+            Node::Number(_) => PinInfo::square().with_fill(NUMBER_COLOR),
+            Node::Named(_) => {
                 unreachable!("String node has no inputs")
             }
-            DemoNode::ExprNode(_) if pin.id.input == 0 => {
+            Node::ExprNode(_) if pin.id.input == 0 => {
                 let changed = match &*pin.remotes {
                     [] => {
                         let input = snarl[pin.id.node].string_in();
@@ -262,7 +262,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                     },
                 )
             }
-            DemoNode::ExprNode(ref expr_node) => {
+            Node::ExprNode(ref expr_node) => {
                 if pin.id.input <= expr_node.bindings.len() {
                     match &*pin.remotes {
                         [] => {
@@ -294,15 +294,15 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         pin: &OutPin,
         ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) -> PinInfo {
         match snarl[pin.id.node] {
-            DemoNode::Number(ref mut value) => {
+            Node::Number(ref mut value) => {
                 assert_eq!(pin.id.output, 0, "Number node has only one output");
                 ui.add(egui::DragValue::new(value));
                 PinInfo::square().with_fill(NUMBER_COLOR)
             }
-            DemoNode::Named(ref mut value) => {
+            Node::Named(ref mut value) => {
                 assert_eq!(pin.id.output, 0, "String node has only one output");
                 let edit = egui::TextEdit::singleline(value)
                     .clip_text(false)
@@ -315,7 +315,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                     },
                 )
             }
-            DemoNode::ExprNode(ref expr_node) => {
+            Node::ExprNode(ref expr_node) => {
                 let value = expr_node.eval();
                 assert_eq!(pin.id.output, 0, "Expr node has only one output");
                 ui.label(format_float(value));
@@ -324,7 +324,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         }
     }
 
-    fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<DemoNode>) -> bool {
+    fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<Node>) -> bool {
         true
     }
 
@@ -333,24 +333,24 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         pos: egui::Pos2,
         ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) {
         ui.label("Add node");
         if ui.button("Number").clicked() {
-            snarl.insert_node(pos, DemoNode::Number(0));
+            snarl.insert_node(pos, Node::Number(0));
             ui.close_menu();
         }
         if ui.button("Expr").clicked() {
-            snarl.insert_node(pos, DemoNode::ExprNode(ExprNode::new()));
+            snarl.insert_node(pos, Node::ExprNode(ExprNode::new()));
             ui.close_menu();
         }
         if ui.button("String").clicked() {
-            snarl.insert_node(pos, DemoNode::Named("".to_owned()));
+            snarl.insert_node(pos, Node::Named("".to_owned()));
             ui.close_menu();
         }
     }
 
-    fn has_dropped_wire_menu(&mut self, _src_pins: AnyPins, _snarl: &mut Snarl<DemoNode>) -> bool {
+    fn has_dropped_wire_menu(&mut self, _src_pins: AnyPins, _snarl: &mut Snarl<Node>) -> bool {
         true
     }
 
@@ -360,7 +360,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         ui: &mut Ui,
         _scale: f32,
         src_pins: AnyPins,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) {
         // In this demo, we create a context-aware node graph menu, and connect a wire
         // dropped on the fly based on user input to a new node created.
@@ -374,19 +374,19 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         const PIN_NUM: PinCompat = 1;
         const PIN_STR: PinCompat = 2;
 
-        fn pin_out_compat(node: &DemoNode) -> PinCompat {
+        fn pin_out_compat(node: &Node) -> PinCompat {
             match node {
-                DemoNode::Number(_) => PIN_NUM,
-                DemoNode::Named(_) => PIN_STR,
-                DemoNode::ExprNode(_) => PIN_NUM,
+                Node::Number(_) => PIN_NUM,
+                Node::Named(_) => PIN_STR,
+                Node::ExprNode(_) => PIN_NUM,
             }
         }
 
-        fn pin_in_compat(node: &DemoNode, pin: usize) -> PinCompat {
+        fn pin_in_compat(node: &Node, pin: usize) -> PinCompat {
             match node {
-                DemoNode::Number(_) => 0,
-                DemoNode::Named(_) => 0,
-                DemoNode::ExprNode(_) => {
+                Node::Number(_) => 0,
+                Node::Named(_) => 0,
+                Node::ExprNode(_) => {
                     if pin == 0 {
                         PIN_STR
                     } else {
@@ -405,7 +405,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
 
                 let src_pin = src_pins[0];
                 let src_out_ty = pin_out_compat(snarl.get_node(src_pin.node).unwrap());
-                let dst_in_candidates = [("Expr", || DemoNode::ExprNode(ExprNode::new()), PIN_STR)];
+                let dst_in_candidates = [("Expr", || Node::ExprNode(ExprNode::new()), PIN_STR)];
 
                 for (name, ctor, in_ty) in dst_in_candidates {
                     if src_out_ty & in_ty != 0 && ui.button(name).clicked() {
@@ -428,13 +428,9 @@ impl SnarlViewer<DemoNode> for DemoViewer {
                 });
 
                 let dst_out_candidates = [
-                    (
-                        "Number",
-                        (|| DemoNode::Number(0)) as fn() -> DemoNode,
-                        PIN_NUM,
-                    ),
-                    ("String", || DemoNode::Named("".to_owned()), PIN_STR),
-                    ("Expr", || DemoNode::ExprNode(ExprNode::new()), PIN_NUM),
+                    ("Number", (|| Node::Number(0)) as fn() -> Node, PIN_NUM),
+                    ("String", || Node::Named("".to_owned()), PIN_STR),
+                    ("Expr", || Node::ExprNode(ExprNode::new()), PIN_NUM),
                 ];
 
                 for (name, ctor, out_ty) in dst_out_candidates {
@@ -467,7 +463,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         };
     }
 
-    fn has_node_menu(&mut self, _node: &DemoNode) -> bool {
+    fn has_node_menu(&mut self, _node: &Node) -> bool {
         true
     }
 
@@ -478,7 +474,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         _outputs: &[OutPin],
         ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) {
         ui.label("Node menu");
         if ui.button("Remove").clicked() {
@@ -487,7 +483,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         }
     }
 
-    fn has_on_hover_popup(&mut self, _: &DemoNode) -> bool {
+    fn has_on_hover_popup(&mut self, _: &Node) -> bool {
         true
     }
 
@@ -498,16 +494,16 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         _outputs: &[OutPin],
         ui: &mut Ui,
         _scale: f32,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<Node>,
     ) {
         match snarl[node] {
-            DemoNode::Number(_) => {
+            Node::Number(_) => {
                 ui.label("Outputs integer value");
             }
-            DemoNode::Named(_) => {
+            Node::Named(_) => {
                 ui.label("Outputs string value");
             }
-            DemoNode::ExprNode(_) => {
+            Node::ExprNode(_) => {
                 ui.label("Evaluates algebraic expression with input for each unique variable name");
             }
         }
@@ -840,7 +836,7 @@ impl Default for State {
     }
 }
 pub struct DemoApp {
-    snarl: Snarl<DemoNode>,
+    snarl: Snarl<Node>,
     style: SnarlStyle,
     snarl_ui_id: Option<Id>,
     state: State,
@@ -915,7 +911,7 @@ impl App for DemoApp {
                 let _ = parse_dot(&mut self.snarl, &self.state.graph_str);
             }
             if ui.add(egui::Button::new("Click me")).clicked() {
-                self.snarl.insert_node(self.state.pos, DemoNode::Number(0));
+                self.snarl.insert_node(self.state.pos, Node::Number(0));
                 self.state.pos[0] += 11.;
                 self.state.pos[1] += 11.;
             }
@@ -930,7 +926,7 @@ impl App for DemoApp {
                     ui.strong("Selected nodes");
 
                     let selected =
-                        Snarl::<DemoNode>::get_selected_nodes_at("snarl", snarl_ui_id, ui.ctx());
+                        Snarl::<Node>::get_selected_nodes_at("snarl", snarl_ui_id, ui.ctx());
                     let mut selected = selected
                         .into_iter()
                         .map(|id| (id, &self.snarl[id]))
@@ -1036,7 +1032,7 @@ fn node_name(e: &Element) -> Result<String> {
 /// Parse flow
 /// g: Graph = DotParser.new(&input).process();
 ///
-fn parse_dot(snarl: &mut Snarl<DemoNode>, input: &str) -> Result<()> {
+fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
     let mut parser = DotParser::new(&input);
 
     let graph = parser.process().map_err(Error::DotParserError)?;
@@ -1058,7 +1054,7 @@ fn parse_dot(snarl: &mut Snarl<DemoNode>, input: &str) -> Result<()> {
                 y: mid.y as f32,
             };
             let name = node_name(visual_graph.element(nh))?;
-            let node = DemoNode::Named(name);
+            let node = Node::Named(name);
             snarl.insert_node(pos, node);
         }
     }
