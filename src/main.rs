@@ -805,11 +805,45 @@ impl Expr {
     }
 }
 
+struct State {
+    pos: egui::Pos2,
+    graph_str: String,
+}
+
+const GRAPH: &str = r#"
+digraph G {
+  // Nodes
+  A ;
+  B [label="Node Beee"];
+  C [label="Node C"];
+  D [label="Node D"];
+  E [label="Node E"];
+
+  // Edges (connections)
+  A -> B;
+  A -> C;
+  B -> D;
+  C -> D;
+  D -> E;
+  B -> E;
+}
+"#;
+
+static LOOP_NUM: AtomicUsize = AtomicUsize::new(0);
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            pos: Default::default(),
+            graph_str: GRAPH.to_string(),
+        }
+    }
+}
 pub struct DemoApp {
     snarl: Snarl<DemoNode>,
     style: SnarlStyle,
     snarl_ui_id: Option<Id>,
-    state: egui::Pos2,
+    state: State,
 }
 
 impl DemoApp {
@@ -840,7 +874,7 @@ impl DemoApp {
             snarl,
             style,
             snarl_ui_id: None,
-            state: egui::Pos2::new(0., 0.),
+            state: Default::default(),
         }
     }
 }
@@ -870,11 +904,20 @@ impl App for DemoApp {
         });
 
         egui::SidePanel::left("style").show(ctx, |ui| {
+            if LOOP_NUM.load(Ordering::SeqCst) == 0 {
+                let _ = parse_dot(&mut self.snarl, &self.state.graph_str);
+                LOOP_NUM.fetch_add(1, Ordering::SeqCst);
+            }
+            ui.add(egui::text_edit::TextEdit::multiline(
+                &mut self.state.graph_str,
+            ));
+            if ui.add(egui::Button::new("Parse graph")).clicked() {
+                let _ = parse_dot(&mut self.snarl, &self.state.graph_str);
+            }
             if ui.add(egui::Button::new("Click me")).clicked() {
-                dbg!(self.state);
-                self.snarl.insert_node(self.state, DemoNode::Number(0));
-                self.state[0] += 11.;
-                self.state[1] += 11.;
+                self.snarl.insert_node(self.state.pos, DemoNode::Number(0));
+                self.state.pos[0] += 11.;
+                self.state.pos[1] += 11.;
             }
             egui::ScrollArea::vertical().show(ui, |ui| {
                 egui_probe::Probe::new(&mut self.style).show(ui);
@@ -970,6 +1013,58 @@ fn format_float(v: f64) -> String {
     format!("{}", v)
 }
 
+fn lower_vg(vg: &mut VisualGraph) {
+    vg.to_valid_dag();
+    vg.split_text_edges();
+    vg.split_long_edges(false);
+
+    for elem in vg.dag.iter() {
+        vg.element_mut(elem).resize();
+    }
+}
+
+fn node_name(e: &Element) -> Result<String> {
+    Ok(match &e.shape {
+        ShapeKind::Box(x) => x,
+        ShapeKind::Circle(x) => x,
+        ShapeKind::DoubleCircle(x) => x,
+        _ => todo!(),
+    }
+    .to_string())
+}
+
+/// Parse flow
+/// g: Graph = DotParser.new(&input).process();
+///
+fn parse_dot(snarl: &mut Snarl<DemoNode>, input: &str) -> Result<()> {
+    let mut parser = DotParser::new(&input);
+
+    let graph = parser.process().map_err(Error::DotParserError)?;
+    let mut graph_builder = GraphBuilder::new();
+    graph_builder.visit_graph(&graph);
+    // has id's as graph.nodes.keys()
+    let mut visual_graph = graph_builder.get();
+
+    lower_vg(&mut visual_graph);
+    dbg!(&visual_graph);
+    Placer::new(&mut visual_graph).layout(false);
+    //visual_graph.do_it(false, false, false, &mut svg_writer);
+    for nh in visual_graph.iter_nodes() {
+        // if not an edge
+        if !visual_graph.is_connector(nh) {
+            let mid = visual_graph.pos(nh).middle();
+            let pos = egui::Pos2 {
+                x: mid.x as f32,
+                y: mid.y as f32,
+            };
+            let name = node_name(visual_graph.element(nh))?;
+            let node = DemoNode::Named(name);
+            snarl.insert_node(pos, node);
+        }
+    }
+    Ok(())
+}
+
 #[test]
 fn foo() {
     use layout::{
@@ -978,21 +1073,12 @@ fn foo() {
         gv::{DotParser, GraphBuilder},
         topo::{layout::VisualGraph, placer::place::Placer},
     };
-    fn lower_vg(vg: &mut VisualGraph) {
-        vg.to_valid_dag();
-        vg.split_text_edges();
-        vg.split_long_edges(false);
-
-        for elem in vg.dag.iter() {
-            vg.element_mut(elem).resize();
-        }
-    }
 
     let contents = r#"
 digraph G {
   // Nodes
-  A [label="Node A"];
-  B [label="Node B"];
+  A ;
+  B [label="Node Beee"];
   C [label="Node C"];
   D [label="Node D"];
   E [label="Node E"];
@@ -1005,7 +1091,6 @@ digraph G {
   D -> E;
   B -> E;
 }
-
 "#;
     let mut parser = DotParser::new(&contents);
 
