@@ -18,8 +18,15 @@ For just basic graphs:
 
 ### TODO after MVP
 
+* Convert project to a Rust library
 * Edit arbitrary node style attributes
 * Directed and undirected connections
 * Add nodes
 * Support subgraphs
 * Support [Mermaid Diagrams](http://mermaid.js.org/intro/syntax-reference.html)
+
+# Usage
+
+```bash
+$ cargo run
+```
