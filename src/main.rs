@@ -440,20 +440,11 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
 
         // given a dot id, cehck if it's in the node_map
         let from_node = node_id_from_label(&graph, &from.name, &node_map).unwrap();
-        // start of edge
-        let start = OutPinId {
-            node: from_node.clone(),
-            output: 0,
-        };
 
         // start can connect to multiple ends
         for (dot_id, ..) in to.iter() {
             let Some(to_node) = node_id_from_label(&graph, &dot_id.name, &node_map) else {
                 panic!();
-            };
-            let stop = InPinId {
-                node: to_node.clone(),
-                input: 0,
             };
 
             node_connect(snarl, &from_node, &to_node);
