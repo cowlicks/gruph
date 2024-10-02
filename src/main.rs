@@ -27,14 +27,20 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 struct Node {
     name: String,
+    inputs: usize,
+    outputs: usize,
 }
 
 impl Node {
     fn new(name: &str) -> Self {
-        Self { name: name.to_string() }
+        Self {
+            name: name.to_string(),
+            inputs: 0,
+            outputs: 0,
+        }
     }
     fn name(&self) -> &str {
         &self.name
@@ -49,7 +55,6 @@ impl SnarlViewer<Node> for DemoViewer {
         for &remote in &to.remotes {
             snarl.disconnect(remote, to.id);
         }
-
         snarl.connect(from.id, to.id);
     }
 
@@ -58,11 +63,11 @@ impl SnarlViewer<Node> for DemoViewer {
     }
 
     fn inputs(&mut self, node: &Node) -> usize {
-        2
+        node.inputs
     }
 
     fn outputs(&mut self, node: &Node) -> usize {
-        2
+        node.outputs
     }
 
     fn show_input(
@@ -398,7 +403,6 @@ fn node_id_from_label(
 }
 
 /// Parse flow
-/// g: Graph = DotParser.new(&input).process();
 fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
     let mut node_map = BTreeMap::new();
     let mut parser = DotParser::new(&input);
@@ -435,24 +439,42 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
         };
 
         // given a dot id, cehck if it's in the node_map
-        let from_node_id = node_id_from_label(&graph, &from.name, &node_map).unwrap();
+        let from_node = node_id_from_label(&graph, &from.name, &node_map).unwrap();
         // start of edge
         let start = OutPinId {
-            node: from_node_id.clone(),
+            node: from_node.clone(),
             output: 0,
         };
 
         // start can connect to multiple ends
         for (dot_id, ..) in to.iter() {
-            let Some(snarl_to_node_id) = node_id_from_label(&graph, &dot_id.name, &node_map) else {
+            let Some(to_node) = node_id_from_label(&graph, &dot_id.name, &node_map) else {
                 panic!();
             };
             let stop = InPinId {
-                node: snarl_to_node_id.clone(),
+                node: to_node.clone(),
                 input: 0,
             };
-            snarl.connect(start, stop);
+
+            node_connect(snarl, &from_node, &to_node);
         }
     }
     Ok(())
+}
+
+fn node_connect(snarl: &mut Snarl<Node>, from: &NodeId, to: &NodeId) {
+    let from_node = snarl.get_node_mut(*from).unwrap();
+    let out_pin = OutPinId {
+        node: *from,
+        output: from_node.outputs,
+    };
+    from_node.outputs += 1;
+    let to_node = snarl.get_node_mut(*to).unwrap();
+    let in_pin = InPinId {
+        node: *to,
+        input: to_node.inputs,
+    };
+    to_node.inputs += 1;
+
+    snarl.connect(out_pin, in_pin);
 }
