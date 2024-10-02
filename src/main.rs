@@ -348,7 +348,11 @@ fn main() {
     });
 }
 
-fn lower_vg(vg: &mut VisualGraph) {
+
+/// Same as:
+/// https://docs.rs/layout-rs/0.1.2/src/layout/topo/layout.rs.html#138-148
+/// Just without the `self.render(..)`
+fn lower_and_place(vg: &mut VisualGraph) {
     vg.to_valid_dag();
     vg.split_text_edges();
     vg.split_long_edges(false);
@@ -356,6 +360,7 @@ fn lower_vg(vg: &mut VisualGraph) {
     for elem in vg.dag.iter() {
         vg.element_mut(elem).resize();
     }
+    Placer::new(vg).layout(false);
 }
 
 fn node_name(e: &Element) -> Result<String> {
@@ -368,6 +373,7 @@ fn node_name(e: &Element) -> Result<String> {
     .to_string())
 }
 
+// handle's getting a "NodeId" from either a nodes "ID" or its "label"
 fn node_id_from_label(
     g: &Graph,
     id_or_label: &str,
@@ -412,8 +418,7 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
     graph_builder.visit_graph(&graph);
     // The following creates the "visual" graph and gives positions to the nodes
     let mut visual_graph = graph_builder.get();
-    lower_vg(&mut visual_graph);
-    Placer::new(&mut visual_graph).layout(false);
+    lower_and_place(&mut visual_graph);
 
     // get all the positions and insert them as nodes
     for nh in visual_graph.iter_nodes() {
@@ -453,6 +458,7 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
     Ok(())
 }
 
+/// Connect two nodes, via their ID. Handles incrementing # inputs
 fn node_connect(snarl: &mut Snarl<Node>, from: &NodeId, to: &NodeId) {
     let from_node = snarl.get_node_mut(*from).unwrap();
     let out_pin = OutPinId {
@@ -460,6 +466,7 @@ fn node_connect(snarl: &mut Snarl<Node>, from: &NodeId, to: &NodeId) {
         output: from_node.outputs,
     };
     from_node.outputs += 1;
+
     let to_node = snarl.get_node_mut(*to).unwrap();
     let in_pin = InPinId {
         node: *to,
