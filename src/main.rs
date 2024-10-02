@@ -28,16 +28,16 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-enum Node {
-    /// Value node with a single output.
-    Named(String),
+struct Node {
+    name: String,
 }
 
 impl Node {
+    fn new(name: &str) -> Self {
+        Self { name: name.to_string() }
+    }
     fn name(&self) -> &str {
-        match self {
-            Node::Named(x) => x,
-        }
+        &self.name
     }
 }
 
@@ -54,21 +54,15 @@ impl SnarlViewer<Node> for DemoViewer {
     }
 
     fn title(&mut self, node: &Node) -> String {
-        match node {
-            Node::Named(x) => x.to_string(),
-        }
+        node.name.to_string()
     }
 
     fn inputs(&mut self, node: &Node) -> usize {
-        match node {
-            Node::Named(_) => 2,
-        }
+        2
     }
 
     fn outputs(&mut self, node: &Node) -> usize {
-        match node {
-            Node::Named(_) => 2,
-        }
+        2
     }
 
     fn show_input(
@@ -104,7 +98,7 @@ impl SnarlViewer<Node> for DemoViewer {
     ) {
         ui.label("Add node");
         if ui.button("String").clicked() {
-            snarl.insert_node(pos, Node::Named("".to_owned()));
+            snarl.insert_node(pos, Node::new(""));
             ui.close_menu();
         }
     }
@@ -146,11 +140,7 @@ impl SnarlViewer<Node> for DemoViewer {
         _scale: f32,
         snarl: &mut Snarl<Node>,
     ) {
-        match snarl[node] {
-            Node::Named(_) => {
-                ui.label("Outputs string value");
-            }
-        }
+        ui.label(snarl[node].name.clone());
     }
 }
 
@@ -432,7 +422,7 @@ fn parse_dot(snarl: &mut Snarl<Node>, input: &str) -> Result<()> {
             };
             // this is the "label" i need the node "id"
             let name = node_name(visual_graph.element(nh))?;
-            let node = Node::Named(name.clone());
+            let node = Node::new(&name);
             let snarl_node_id = snarl.insert_node(pos, node);
             // save the snarl node_id by it's 'name' wich is dot's NodeId.name or label attr
             node_map.insert(name, snarl_node_id);
