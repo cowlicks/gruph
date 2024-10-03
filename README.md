@@ -8,7 +8,8 @@ The goal of this project is to provide the best of both worlds by allowing users
 The first Graph Description Language (GDL) we will support is DOT. It is widely used and has several Rust implementations.
 We're using [egui](https://github.com/emilk/egui) for it's ease of use and flexibility, it runs both natively and on the web.
 I'm using [egui_snarl](https://github.com/zakarumych/egui-snarl), for the node graph drawing library. I choose it over [egui_graphs](https://github.com/blitzarx1/egui_graphs) because the latter seemed more oriented toward large scale 3D data visualizations of graphs.
- ![image](https://github.com/user-attachments/assets/b57987d5-90fb-43c8-80a1-0a2376291f91)
+![image](https://github.com/user-attachments/assets/dabc405b-8eae-461f-a18b-d7d59280c98d)
+
 
 ## TODO for an MVP
 
