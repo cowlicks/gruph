@@ -157,10 +157,12 @@ const GRAPH: &str = r#"
 digraph G {
   // Nodes
   A ;
-  B [label="Node Beee"];
-  C [label="Node C"];
-  D [label="Node D"];
-  E [label="Node E"];
+  B [label="Bob's node"];
+  C [label="Carol's node"];
+  D [label="Dan's node"];
+  E [label="Emily's node"];
+  F;
+  G;
 
   // Edges (connections)
   A -> B;
@@ -169,6 +171,8 @@ digraph G {
   C -> D;
   D -> E;
   B -> E;
+  B -> F;
+  G -> A;
 }
 "#;
 
@@ -347,7 +351,6 @@ fn main() {
             .expect("failed to start eframe");
     });
 }
-
 
 /// Same as:
 /// https://docs.rs/layout-rs/0.1.2/src/layout/topo/layout.rs.html#138-148
